@@ -17,6 +17,23 @@ val AxisXColor = Color(0xFFE53935)
 val AxisYColor = Color(0xFF43A047)
 val AxisZColor = Color(0xFF1E88E5)
 
+// Стани BLE-з'єднання
+val BleIdleColor = Color(0xFF78909C)
+val BleBusyColor = Color(0xFF1E88E5)
+val BleConnectedColor = Color(0xFF43A047)
+val BleTransferColor = Color(0xFF00897B)
+val BleReconnectingColor = Color(0xFFFFB300)
+val BleErrorColor = Color(0xFFE53935)
+
+// Термінал: темний фон незалежно від теми
+val TerminalBackground = Color(0xFF12161B)
+val TerminalText = Color(0xFFCFD8DC)
+val TerminalTx = Color(0xFF64B5F6)
+val TerminalRx = Color(0xFF81C784)
+val TerminalSys = Color(0xFF90A4AE)
+val TerminalWarn = Color(0xFFFFD54F)
+val TerminalErr = Color(0xFFEF5350)
+
 @Composable
 fun IntrusionDetectorTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),

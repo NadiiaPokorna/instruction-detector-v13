@@ -37,6 +37,10 @@ android {
     buildFeatures {
         compose = true
     }
+    testOptions {
+        // Підстраховка: android.util.Log у JVM-тестах повертає значення за замовчуванням
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {
@@ -52,6 +56,7 @@ dependencies {
     implementation(libs.androidx.material3)
 
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
 
     debugImplementation(libs.androidx.ui.tooling)
 }

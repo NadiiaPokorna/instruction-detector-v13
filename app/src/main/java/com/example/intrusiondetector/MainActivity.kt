@@ -10,7 +10,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.intrusiondetector.ui.IntrusionScreen
+import com.example.intrusiondetector.ui.AppRoot
 import com.example.intrusiondetector.ui.theme.IntrusionDetectorTheme
 
 class MainActivity : ComponentActivity(), SensorEventListener {
@@ -18,8 +18,9 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     private lateinit var sensorManager: SensorManager
     private var accelerometer: Sensor? = null
 
-    // ViewModel зберігає стан (тривогу, журнал) при повороті екрана
-    private val viewModel: IntrusionViewModel by viewModels()
+    // ViewModel зберігає стан (тривогу, журнал) при повороті екрана,
+    // фабрика передає йому конектор хаба з AppContainer
+    private val viewModel: IntrusionViewModel by viewModels { IntrusionViewModel.Factory }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -33,7 +34,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         setContent {
             IntrusionDetectorTheme {
                 val state = viewModel.uiState.collectAsStateWithLifecycle()
-                IntrusionScreen(state = state.value, onRearm = viewModel::rearm)
+                AppRoot(sensorState = state.value, onRearm = viewModel::rearm)
             }
         }
     }
