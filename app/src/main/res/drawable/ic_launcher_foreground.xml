@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A door with vibration waves. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M40,30 L62,30 L62,78 L40,78 Z M56,52 A2.5,2.5 0 1,0 56,57 A2.5,2.5 0 1,0 56,52 Z" />
+    <path
+        android:strokeColor="#FFC107"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M69,44 Q73,54 69,64 M75,40 Q81,54 75,68" />
+</vector>
