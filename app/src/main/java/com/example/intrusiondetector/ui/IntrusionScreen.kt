@@ -95,7 +95,12 @@ private fun SecurityState.color() = when (this) {
 @Composable
 fun IntrusionScreen(state: IntrusionUiState, cloud: CloudUiState, onRearm: () -> Unit) {
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Intrusion Detector") }) },
+        topBar = {
+            TopAppBar(
+                title = { Text("Intrusion Detector") },
+                actions = { HubIndicator(state.hubConnected, state.hubName) },
+            )
+        },
     ) { padding ->
         Column(
             modifier = Modifier
