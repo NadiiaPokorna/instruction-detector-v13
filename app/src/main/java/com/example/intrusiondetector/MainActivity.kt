@@ -18,8 +18,9 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     private lateinit var sensorManager: SensorManager
     private var accelerometer: Sensor? = null
 
-    // ViewModel зберігає стан (тривогу, журнал) при повороті екрана
-    private val viewModel: IntrusionViewModel by viewModels()
+    // ViewModel зберігає стан (тривогу, журнал) при повороті екрана,
+    // фабрика передає йому конектор хаба з AppContainer
+    private val viewModel: IntrusionViewModel by viewModels { IntrusionViewModel.Factory }
 
     // ЛР2: стан BLE-хаба; отримує стан детектора, щоб надсилати тривогу
     private val hubViewModel: HubViewModel by viewModels { HubViewModel.factory(viewModel.uiState) }

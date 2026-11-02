@@ -92,7 +92,12 @@ private fun SecurityState.color() = when (this) {
 @Composable
 fun IntrusionScreen(state: IntrusionUiState, onRearm: () -> Unit) {
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Intrusion Detector") }) },
+        topBar = {
+            TopAppBar(
+                title = { Text("Intrusion Detector") },
+                actions = { HubIndicator(state.hubConnected, state.hubName) },
+            )
+        },
     ) { padding ->
         Column(
             modifier = Modifier
@@ -120,6 +125,31 @@ fun IntrusionScreen(state: IntrusionUiState, onRearm: () -> Unit) {
             EventLogCard(state)
             ThresholdsCard()
         }
+    }
+}
+
+/** Маленький індикатор у верхній панелі: чи підключений хаб BLE. */
+@Composable
+private fun HubIndicator(connected: Boolean, name: String?) {
+    val color = if (connected) QuietColor else CalibratingColor
+    Row(
+        Modifier
+            .padding(end = 12.dp)
+            .background(color.copy(alpha = 0.15f), RoundedCornerShape(50))
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier
+                .size(8.dp)
+                .background(color, RoundedCornerShape(50)),
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            if (connected) name ?: "Хаб" else "Хаб не підключено",
+            style = MaterialTheme.typography.labelMedium,
+            color = color,
+        )
     }
 }
 
