@@ -1,9 +1,11 @@
 package com.example.intrusiondetector.ui
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -11,47 +13,50 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
-import com.example.intrusiondetector.IntrusionUiState
-import com.example.intrusiondetector.ui.ble.HubScreen
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.intrusiondetector.IntrusionViewModel
+import com.example.intrusiondetector.ble.HubViewModel
 
-private enum class AppTab(val label: String, val icon: ImageVector) {
-    SENSOR("Сенсор", AppIcons.Vibration),
-    HUB("Хаб BLE", AppIcons.Bluetooth),
-}
-
-/** Дві вкладки з нижньою навігацією: екран сенсора з ЛР1 і екран хаба BLE. */
+/** Дві вкладки: детектор (ЛР1) і BLE-хаб (ЛР2). */
 @Composable
-fun AppRoot(sensorState: IntrusionUiState, onRearm: () -> Unit) {
-    var tab by rememberSaveable { mutableStateOf(AppTab.SENSOR) }
+fun AppRoot(intrusionViewModel: IntrusionViewModel, hubViewModel: HubViewModel) {
+    var tab by rememberSaveable { mutableIntStateOf(0) }
     Scaffold(
         bottomBar = {
             NavigationBar {
-                AppTab.entries.forEach {
-                    NavigationBarItem(
-                        selected = tab == it,
-                        onClick = { tab = it },
-                        icon = { Icon(it.icon, contentDescription = null) },
-                        label = { Text(it.label) },
-                    )
-                }
+                NavigationBarItem(
+                    selected = tab == 0,
+                    onClick = { tab = 0 },
+                    icon = { Icon(Icons.Default.Home, contentDescription = null) },
+                    label = { Text("Детектор") },
+                )
+                NavigationBarItem(
+                    selected = tab == 1,
+                    onClick = { tab = 1 },
+                    icon = { Icon(Icons.Default.Share, contentDescription = null) },
+                    label = { Text("Хаб BLE") },
+                )
             }
         },
-        // Верхні відступи обробляють TopAppBar вкладених екранів.
-        contentWindowInsets = WindowInsets(0),
     ) { padding ->
-        Box(
-            Modifier
-                .padding(padding)
-                .consumeWindowInsets(padding),
-        ) {
-            when (tab) {
-                AppTab.SENSOR -> IntrusionScreen(state = sensorState, onRearm = onRearm)
-                AppTab.HUB -> HubScreen()
+        // consumeWindowInsets: внутрішній Scaffold екрана не додає відступи вдруге
+        Box(Modifier.padding(padding).consumeWindowInsets(padding)) {
+            if (tab == 0) {
+                val state by intrusionViewModel.uiState.collectAsStateWithLifecycle()
+                IntrusionScreen(state = state, onRearm = intrusionViewModel::rearm)
+            } else {
+                val state by hubViewModel.uiState.collectAsStateWithLifecycle()
+                HubScreen(
+                    state = state,
+                    onPermissionsResult = hubViewModel::onPermissionsResult,
+                    onConnect = hubViewModel::connect,
+                    onSendState = hubViewModel::sendState,
+                    onDisconnect = hubViewModel::disconnect,
+                )
             }
         }
     }

@@ -9,7 +9,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.intrusiondetector.ble.HubViewModel
 import com.example.intrusiondetector.ui.AppRoot
 import com.example.intrusiondetector.ui.theme.IntrusionDetectorTheme
 
@@ -22,6 +22,9 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     // фабрика передає йому конектор хаба з AppContainer
     private val viewModel: IntrusionViewModel by viewModels { IntrusionViewModel.Factory }
 
+    // ЛР2: стан BLE-хаба; отримує стан детектора, щоб надсилати тривогу
+    private val hubViewModel: HubViewModel by viewModels { HubViewModel.factory(viewModel.uiState) }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -33,8 +36,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
 
         setContent {
             IntrusionDetectorTheme {
-                val state = viewModel.uiState.collectAsStateWithLifecycle()
-                AppRoot(sensorState = state.value, onRearm = viewModel::rearm)
+                AppRoot(intrusionViewModel = viewModel, hubViewModel = hubViewModel)
             }
         }
     }

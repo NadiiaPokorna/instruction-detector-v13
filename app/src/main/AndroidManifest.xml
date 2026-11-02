@@ -6,18 +6,14 @@
         android:name="android.hardware.sensor.accelerometer"
         android:required="true" />
 
-    <!-- BLE не обов'язковий: застосунок має запускатися на емуляторі без Bluetooth. -->
+    <!-- ЛР2: BLE-хаб. Без BLE застосунок теж працює (хаб імітується). -->
     <uses-feature
         android:name="android.hardware.bluetooth_le"
         android:required="false" />
 
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-    <!-- Lint CoarseFineLocation: на Android 12+ FINE запитується лише разом із COARSE. -->
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-
-    <!-- Для API < 31 -->
     <uses-permission
         android:name="android.permission.BLUETOOTH"
         android:maxSdkVersion="30" />

@@ -34,14 +34,21 @@ Android-застосунок, який перетворює смартфон н�
 app/src/main/java/com/example/intrusiondetector/
 ├── MainActivity.kt            # SensorManager, SensorEventListener, життєвий цикл
 ├── IntrusionViewModel.kt      # стан екрана, журнал подій
+├── ble/
+│   ├── Ble.kt                 # UUID хаба, BleDevice, BleState, IBleConnector
+│   ├── MockBle.kt             # імітація сканера і з'єднання (ЛР2)
+│   └── HubViewModel.kt        # стан вкладки «Хаб BLE», автовідправка тривоги
 ├── sensor/
 │   └── IntrusionDetector.kt   # алгоритм виявлення (чистий Kotlin, без Android)
 └── ui/
+    ├── AppRoot.kt             # нижня навігація: «Детектор» / «Хаб BLE»
     ├── IntrusionScreen.kt     # екран на Compose
+    ├── HubScreen.kt           # пошук, підключення, термінал, дозволи
     └── theme/Theme.kt         # кольори станів і осей
 
-app/src/test/java/com/example/intrusiondetector/sensor/
-└── IntrusionDetectorTest.kt   # тести алгоритму на синтетичних сигналах
+app/src/test/java/com/example/intrusiondetector/
+├── sensor/IntrusionDetectorTest.kt   # тести алгоритму на синтетичних сигналах
+└── ble/MockBleTest.kt                # тести BLE-моку у віртуальному часі
 ```
 
 ## Архітектура
@@ -257,6 +264,34 @@ stateDiagram-v2
 | `alarm_isLatched_untilArm` | тривога, потім спокій | тривога тримається до `arm()` |
 | `resume_recalibrates_butKeepsAlarm` | `resume()` | без тривоги — калібрування, з тривогою — `INTRUSION` лишається |
 | `classify_usesThresholdBoundaries` | граничні значення | правильна межа між `QUIET` і `VIBRATION` |
+
+## ЛР2: BLE-мок
+
+Емулятор не має повноцінного Bluetooth, тому охоронний смарт-хаб **ID-Hub-13** (`D4:13:A1:00:1E:13`) імітується програмно (`ble/MockBle.kt`). Застосунок повідомляє хабу про тривогу через GATT-характеристику запису, а хаб підтверджує прийом через Notify.
+
+| Призначення | UUID | Властивості |
+|---|---|---|
+| Сервіс хаба | `0000a100-6964-4c13-9e2b-7a5c3f0d1e01` | — |
+| STATUS — статус / `ACK` | `0000a102-6964-4c13-9e2b-7a5c3f0d1e01` | Read, Notify |
+| COMMAND — події від телефона | `0000a103-6964-4c13-9e2b-7a5c3f0d1e01` | Write |
+| CCCD — увімкнення Notify | `00002902-0000-1000-8000-00805f9b34fb` | дескриптор |
+
+**Стани з'єднання** (`BleState`): `DISCONNECTED` → `SCANNING` (2 с) → `CONNECTING` (1 с) → `CONNECTED` ⇄ `DATA_TRANSFER` (200 мс на пакет).
+
+**Формат повідомлень** (текст у COMMAND):
+
+- `ALARM=<KNOCKS|SUSTAINED_VIBRATION|TILT>` — надсилається автоматично один раз, коли детектор переходить у `INTRUSION`;
+- `STATE=<CALIBRATING|QUIET|VIBRATION|INTRUSION>` — кнопка «Надіслати стан»;
+- `ACK` — відповідь хаба через Notify STATUS.
+
+Кожна операція пишеться в «Термінал» на екрані (останні 50 рядків) і в Logcat з тегом `BleMock`.
+
+**Як тестувати:**
+
+1. `./gradlew test` — `MockBleTest` перевіряє у віртуальному часі, що пошук повертає ID-Hub-13 рівно через 2 с, підключення займає 1 с, до чужого пристрою підключитися не можна, а без з'єднання дані не надсилаються.
+2. В емуляторі: вкладка «Хаб BLE» → «Пошук пристроїв» → надати дозволи → натиснути ID-Hub-13 → «Надіслати стан». У терміналі з'являться `TX → COMMAND STATE=…` і `RX ← STATUS ACK`.
+3. Не від'єднуючись, викликати тривогу через Virtual Sensors (див. вище) — у терміналі з'явиться `TX → COMMAND ALARM=…`.
+4. Якщо відмовити в дозволах, на екрані з'явиться повідомлення, а пошук не запуститься.
 
 ## Плани
 
