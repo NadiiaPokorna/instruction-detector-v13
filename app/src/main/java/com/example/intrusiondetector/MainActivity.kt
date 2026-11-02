@@ -9,8 +9,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.intrusiondetector.ui.IntrusionScreen
+import com.example.intrusiondetector.ble.HubViewModel
+import com.example.intrusiondetector.ui.AppRoot
 import com.example.intrusiondetector.ui.theme.IntrusionDetectorTheme
 
 class MainActivity : ComponentActivity(), SensorEventListener {
@@ -20,6 +20,9 @@ class MainActivity : ComponentActivity(), SensorEventListener {
 
     // ViewModel зберігає стан (тривогу, журнал) при повороті екрана
     private val viewModel: IntrusionViewModel by viewModels()
+
+    // ЛР2: стан BLE-хаба; отримує стан детектора, щоб надсилати тривогу
+    private val hubViewModel: HubViewModel by viewModels { HubViewModel.factory(viewModel.uiState) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -32,8 +35,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
 
         setContent {
             IntrusionDetectorTheme {
-                val state = viewModel.uiState.collectAsStateWithLifecycle()
-                IntrusionScreen(state = state.value, onRearm = viewModel::rearm)
+                AppRoot(intrusionViewModel = viewModel, hubViewModel = hubViewModel)
             }
         }
     }
