@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
@@ -45,6 +46,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.intrusiondetector.HISTORY_SIZE
 import com.example.intrusiondetector.IntrusionUiState
+import com.example.intrusiondetector.cloud.CloudStatus
+import com.example.intrusiondetector.cloud.CloudUiState
 import com.example.intrusiondetector.description
 import com.example.intrusiondetector.sensor.SecurityState
 import com.example.intrusiondetector.sensor.Thresholds
@@ -90,7 +93,7 @@ private fun SecurityState.color() = when (this) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun IntrusionScreen(state: IntrusionUiState, onRearm: () -> Unit) {
+fun IntrusionScreen(state: IntrusionUiState, cloud: CloudUiState, onRearm: () -> Unit) {
     Scaffold(
         topBar = { TopAppBar(title = { Text("Intrusion Detector") }) },
     ) { padding ->
@@ -102,6 +105,7 @@ fun IntrusionScreen(state: IntrusionUiState, onRearm: () -> Unit) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            CloudCard(cloud)
             if (!state.sensorAvailable) {
                 Card(Modifier.fillMaxWidth()) {
                     Text(
@@ -119,6 +123,31 @@ fun IntrusionScreen(state: IntrusionUiState, onRearm: () -> Unit) {
             SignalCard(state)
             EventLogCard(state)
             ThresholdsCard()
+        }
+    }
+}
+
+/** ЛР3: стан відправки даних у Firebase. */
+@Composable
+private fun CloudCard(cloud: CloudUiState) {
+    val (color, label) = when (cloud.status) {
+        CloudStatus.SUCCESS -> QuietColor to "Надіслано"
+        CloudStatus.ERROR -> IntrusionColor to "Помилка відправки"
+        CloudStatus.PENDING -> VibrationColor to "Очікує мережу (Pending)"
+        CloudStatus.IDLE -> Color.Gray to "Очікування"
+        CloudStatus.NOT_CONFIGURED -> Color.Gray to "Хмара не налаштована"
+    }
+    SectionCard("Хмарна синхронізація") {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(10.dp).background(color, CircleShape))
+            Spacer(Modifier.width(8.dp))
+            Text(label, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+        }
+        val last = cloud.lastSuccessAt
+            ?.let { SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date(it)) } ?: "—"
+        Text("Остання відправка: $last · надіслано: ${cloud.sentCount}", style = MaterialTheme.typography.bodyMedium)
+        cloud.lastError?.let {
+            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
         }
     }
 }

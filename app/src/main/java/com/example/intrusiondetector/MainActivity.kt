@@ -10,6 +10,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import com.example.intrusiondetector.ble.HubViewModel
+import com.example.intrusiondetector.cloud.CloudViewModel
 import com.example.intrusiondetector.ui.AppRoot
 import com.example.intrusiondetector.ui.theme.IntrusionDetectorTheme
 
@@ -24,6 +25,11 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     // ЛР2: стан BLE-хаба; отримує стан детектора, щоб надсилати тривогу
     private val hubViewModel: HubViewModel by viewModels { HubViewModel.factory(viewModel.uiState) }
 
+    // ЛР3: відправка даних сенсора у Firebase Realtime Database
+    private val cloudViewModel: CloudViewModel by viewModels {
+        CloudViewModel.factory(application, viewModel.uiState)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -35,7 +41,11 @@ class MainActivity : ComponentActivity(), SensorEventListener {
 
         setContent {
             IntrusionDetectorTheme {
-                AppRoot(intrusionViewModel = viewModel, hubViewModel = hubViewModel)
+                AppRoot(
+                    intrusionViewModel = viewModel,
+                    hubViewModel = hubViewModel,
+                    cloudViewModel = cloudViewModel,
+                )
             }
         }
     }

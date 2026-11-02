@@ -20,10 +20,15 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.intrusiondetector.IntrusionViewModel
 import com.example.intrusiondetector.ble.HubViewModel
+import com.example.intrusiondetector.cloud.CloudViewModel
 
 /** Дві вкладки: детектор (ЛР1) і BLE-хаб (ЛР2). */
 @Composable
-fun AppRoot(intrusionViewModel: IntrusionViewModel, hubViewModel: HubViewModel) {
+fun AppRoot(
+    intrusionViewModel: IntrusionViewModel,
+    hubViewModel: HubViewModel,
+    cloudViewModel: CloudViewModel,
+) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     Scaffold(
         bottomBar = {
@@ -47,7 +52,8 @@ fun AppRoot(intrusionViewModel: IntrusionViewModel, hubViewModel: HubViewModel) 
         Box(Modifier.padding(padding).consumeWindowInsets(padding)) {
             if (tab == 0) {
                 val state by intrusionViewModel.uiState.collectAsStateWithLifecycle()
-                IntrusionScreen(state = state, onRearm = intrusionViewModel::rearm)
+                val cloud by cloudViewModel.uiState.collectAsStateWithLifecycle()
+                IntrusionScreen(state = state, cloud = cloud, onRearm = intrusionViewModel::rearm)
             } else {
                 val state by hubViewModel.uiState.collectAsStateWithLifecycle()
                 HubScreen(
