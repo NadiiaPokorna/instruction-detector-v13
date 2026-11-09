@@ -25,6 +25,13 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
+    <!-- ЛР4: актуатори. Спалах необов'язковий (є «віртуальний ліхтарик»);
+         setTorchMode не потребує дозволу CAMERA. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-feature
+        android:name="android.hardware.camera.flash"
+        android:required="false" />
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"

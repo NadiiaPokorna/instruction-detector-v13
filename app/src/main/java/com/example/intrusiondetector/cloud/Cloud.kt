@@ -11,7 +11,9 @@ import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
+import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 import java.util.concurrent.TimeUnit
 
@@ -43,10 +45,21 @@ data class SensorData(
     }
 }
 
+/** ЛР4: команда з хмари, вузол devices/{deviceId}/control. */
+@Suppress("PropertyName") // ім'я поля збігається з ключем у Firebase
+data class ControlState(val led_status: Boolean = false)
+
 /** REST API Firebase Realtime Database: POST створює запис з унікальним pushId. */
 interface FirebaseApi {
     @POST("devices/{deviceId}/readings.json")
     suspend fun post(@Path("deviceId") deviceId: String, @Body data: SensorData): Response<Any>
+
+    /** ЛР4: null у тілі, якщо вузла control ще немає. */
+    @GET("devices/{deviceId}/control.json")
+    suspend fun getControl(@Path("deviceId") deviceId: String): Response<ControlState?>
+
+    @PUT("devices/{deviceId}/control.json")
+    suspend fun putControl(@Path("deviceId") deviceId: String, @Body state: ControlState): Response<ControlState>
 }
 
 /** Створює клієнт Retrofit; null, якщо адресу бази не задано. */

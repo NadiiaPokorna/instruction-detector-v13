@@ -9,6 +9,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import com.example.intrusiondetector.actuator.ControlViewModel
 import com.example.intrusiondetector.ble.HubViewModel
 import com.example.intrusiondetector.cloud.CloudViewModel
 import com.example.intrusiondetector.ui.AppRoot
@@ -30,6 +31,11 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         CloudViewModel.factory(application, viewModel.uiState)
     }
 
+    // ЛР4: актуатори (вібрація, ліхтарик) і команди з хмари
+    private val controlViewModel: ControlViewModel by viewModels {
+        ControlViewModel.factory(application, viewModel.uiState)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -45,6 +51,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                     intrusionViewModel = viewModel,
                     hubViewModel = hubViewModel,
                     cloudViewModel = cloudViewModel,
+                    controlViewModel = controlViewModel,
                 )
             }
         }
