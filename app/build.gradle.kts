@@ -4,6 +4,12 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    // ЛР5: KSP (Kotlin Symbol Processing) запускає Room compiler. kapt генерує Java-заглушки
+    // (stubs) для Kotlin-коду і через них запускає Java annotation processor, а KSP читає
+    // Kotlin-код напряму. Тому KSP до ~2 разів швидший, а kapt перебуває в maintenance mode.
+    alias(libs.plugins.ksp)
+    // ЛР5: Room Gradle plugin — налаштовує експорт схеми БД (див. блок room нижче)
+    alias(libs.plugins.room)
 }
 
 // ЛР3: адреса Firebase RTDB з local.properties (не потрапляє в git)
@@ -55,6 +61,12 @@ android {
     }
 }
 
+// ЛР5: експорт схеми БД у JSON (app/schemas/<клас БД>/<version>.json). Файл комітиться в git:
+// так видно історію змін схеми, а Room може перевіряти й тестувати міграції між версіями.
+room {
+    schemaDirectory("$projectDir/schemas")
+}
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -69,6 +81,13 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.retrofit.converter.gson)
     implementation(libs.okhttp.logging.interceptor)
+    // ЛР5: Room — runtime і корутинні розширення (suspend DAO, Flow)
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    // ЛР5: генератор реалізації DAO і Database (SensorDao_Impl, AppDatabase_Impl), працює під час збірки
+    ksp(libs.androidx.room.compiler)
+    // ЛР5: графік на вкладці «Аналітика»
+    implementation(libs.vico.compose.m3)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

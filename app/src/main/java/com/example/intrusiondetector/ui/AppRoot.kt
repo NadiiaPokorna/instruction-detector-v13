@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
@@ -23,14 +24,16 @@ import com.example.intrusiondetector.IntrusionViewModel
 import com.example.intrusiondetector.actuator.ControlViewModel
 import com.example.intrusiondetector.ble.HubViewModel
 import com.example.intrusiondetector.cloud.CloudViewModel
+import com.example.intrusiondetector.storage.SensorViewModel
 
-/** Три вкладки: детектор (ЛР1), BLE-хаб (ЛР2) і керування актуаторами (ЛР4). */
+/** Чотири вкладки: детектор (ЛР1), BLE-хаб (ЛР2), керування актуаторами (ЛР4) і аналітика (ЛР5). */
 @Composable
 fun AppRoot(
     intrusionViewModel: IntrusionViewModel,
     hubViewModel: HubViewModel,
     cloudViewModel: CloudViewModel,
     controlViewModel: ControlViewModel,
+    sensorViewModel: SensorViewModel,
 ) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     Scaffold(
@@ -54,6 +57,13 @@ fun AppRoot(
                     icon = { Icon(Icons.Default.Settings, contentDescription = null) },
                     label = { Text("Керування") },
                 )
+                // ЛР5: історія з Room і графік
+                NavigationBarItem(
+                    selected = tab == 3,
+                    onClick = { tab = 3 },
+                    icon = { Icon(Icons.Default.DateRange, contentDescription = null) },
+                    label = { Text("Аналітика") },
+                )
             }
         },
     ) { padding ->
@@ -75,6 +85,10 @@ fun AppRoot(
                         onAlarm = controlViewModel::alarm,
                         onAutoMode = controlViewModel::setAutoMode,
                     )
+                }
+                3 -> {
+                    val state by sensorViewModel.uiState.collectAsStateWithLifecycle()
+                    AnalyticsScreen(state = state, onClear = sensorViewModel::clearHistory)
                 }
                 else -> {
                     val state by hubViewModel.uiState.collectAsStateWithLifecycle()

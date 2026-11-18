@@ -27,6 +27,8 @@ Android-застосунок, який перетворює смартфон н�
 | Target SDK | 35 |
 | Стан | ViewModel + StateFlow |
 | Тести | JUnit 4 |
+| Локальна БД | Room + KSP |
+| Графіки | Vico |
 
 ## Структура проєкту
 
@@ -43,8 +45,12 @@ app/src/main/java/com/example/intrusiondetector/
 │   └── HubViewModel.kt        # стан вкладки «Хаб BLE», автовідправка тривоги
 ├── sensor/
 │   └── IntrusionDetector.kt   # алгоритм виявлення (чистий Kotlin, без Android)
+├── storage/
+│   ├── SensorStorage.kt       # Room: SensorRecord, SensorDao, AppDatabase, SensorRepository (ЛР5)
+│   └── SensorViewModel.kt     # запис у БД раз на 1 с і події актуаторів, стан «Аналітики»
 └── ui/
-    ├── AppRoot.kt             # нижня навігація: «Детектор» / «Хаб BLE» / «Керування»
+    ├── AppRoot.kt             # нижня навігація: «Детектор» / «Хаб BLE» / «Керування» / «Аналітика»
+    ├── AnalyticsScreen.kt     # статус запису, графік Vico, спрацювання актуаторів (ЛР5)
     ├── ControlScreen.kt       # лампа, ліхтарик, тривога, авто-режим, журнал (ЛР4)
     ├── IntrusionScreen.kt     # екран на Compose
     ├── HubScreen.kt           # пошук, підключення, термінал, дозволи
@@ -53,6 +59,9 @@ app/src/main/java/com/example/intrusiondetector/
 app/src/test/java/com/example/intrusiondetector/
 ├── sensor/IntrusionDetectorTest.kt   # тести алгоритму на синтетичних сигналах
 └── ble/MockBleTest.kt                # тести BLE-моку у віртуальному часі
+
+app/schemas/com.example.intrusiondetector.storage.AppDatabase/
+└── 1.json                     # схема БД версії 1, генерує Room під час збірки (ЛР5)
 ```
 
 ## Архітектура
@@ -65,7 +74,7 @@ flowchart LR
     A -->|"onSample(x, y, z, t)"| VM["IntrusionViewModel"]
     VM -->|"process()"| D["IntrusionDetector"]
     D -->|SecuritySnapshot| VM
-    VM -->|"StateFlow&lt;IntrusionUiState&gt;"| UI["IntrusionScreen<br/>Jetpack Compose"]
+    VM -->|"StateFlow IntrusionUiState"| UI["IntrusionScreen<br/>Jetpack Compose"]
     UI -->|"onRearm()"| VM
 ```
 
@@ -360,6 +369,99 @@ devices/{ANDROID_ID}/control: { led_status: false }
 
 **Event-driven vs Polling.** Тут використано опитування (polling): пристрій сам щосекунди питає сервер, чи змінилася команда. Це просто, працює через звичайний REST і не потребує відкритого з'єднання, але дає затримку до 1 с і зайві запити, навіть коли нічого не змінюється (трафік і батарея). Event-driven підхід (SSE-стрім Firebase, WebSocket, MQTT, FCM push) доставляє команду одразу після зміни і без холостих запитів, але потребує постійного з'єднання або push-інфраструктури і складнішої обробки обривів зв'язку. Для лабораторної досить опитування; для реального пристрою краще події.
 
+## ЛР5: Локальна БД Room і аналітика
+
+Значення сенсора (RMS вібрації) раз на секунду і кожне спрацювання актуаторів ЛР4 зберігаються в локальній БД **Room** (SQLite). Вкладка «Аналітика» показує лінійний графік останніх 50 записів (бібліотека **Vico**), який оновлюється сам при кожному новому записі, і список спрацювань. Код — `storage/SensorStorage.kt` (Model: Entity, DAO, Database, Repository), `storage/SensorViewModel.kt` (ViewModel), `ui/AnalyticsScreen.kt` (View). Схема БД — `app/schemas/.../1.json`.
+
+**ER-діаграма**
+
+```mermaid
+erDiagram
+    sensor_records {
+        INTEGER id PK "autoincrement (rowid)"
+        INTEGER timestamp "мс epoch, індекс index_sensor_records_timestamp"
+        REAL sensorValue "RMS, м/с²"
+        INTEGER actionTriggered "0/1"
+    }
+```
+
+| Поле | Тип Kotlin | Тип SQLite | Опис |
+|---|---|---|---|
+| `id` | `Long` | `INTEGER PRIMARY KEY AUTOINCREMENT` | ключ, генерує SQLite |
+| `timestamp` | `Long` | `INTEGER NOT NULL` (індекс) | `System.currentTimeMillis()`, мс від 1970-01-01 UTC |
+| `sensorValue` | `Float` | `REAL NOT NULL` | RMS вібрації, м/с² |
+| `actionTriggered` | `Boolean` | `INTEGER NOT NULL` (0/1) | `true` — у цей момент виконано автодію ЛР4 |
+
+**Схема MVVM**
+
+```mermaid
+flowchart LR
+    A[Акселерометр] --> M[MainActivity]
+    M --> IVM[IntrusionViewModel]
+    IVM -- "StateFlow IntrusionUiState" --> SVM[SensorViewModel]
+    IVM -- StateFlow --> CVM[ControlViewModel]
+    CVM -- "executedActions (SharedFlow)" --> SVM
+    SVM -- "insert (Dispatchers.IO)" --> R[SensorRepository]
+    R --> D[SensorDao]
+    D --> DB[(Room / SQLite)]
+    DB -- "Flow of List SensorRecord" --> R
+    R -- Flow --> SVM
+    SVM -- "uiState (StateFlow)" --> UI[AnalyticsScreen]
+```
+
+**Послідовність запису**
+
+```mermaid
+sequenceDiagram
+    participant T as Таймер (1 с)
+    participant VM as SensorViewModel
+    participant R as SensorRepository
+    participant DB as Room / SQLite
+    participant IT as InvalidationTracker
+    participant UI as AnalyticsScreen
+    T->>VM: тік, sensor.value
+    VM->>R: insert(SensorRecord)
+    R->>DB: INSERT на Dispatchers.IO
+    DB->>IT: тригер: таблиця sensor_records змінилась
+    IT->>DB: перезапуск SELECT getLastRecords(50)
+    DB-->>VM: новий List у Flow → combine → uiState
+    VM-->>UI: рекомпозиція, runTransaction → графік
+```
+
+**Коли пишемо**
+
+| Тригер | `actionTriggered` | Частота |
+|---|---|---|
+| Таймер, поки сенсор активний (між `onResume` і `onPause`) | `false` | 1 раз на секунду |
+| `ControlViewModel` виконав автодію (авто-режим увімкнено) | `true` | на кожне рішення `DecisionEngine` (R1 дає один запис на `ALARM + TORCH_ON`) |
+| Ручні й хмарні команди, рішення при вимкненому авто-режимі | — | не пишуться |
+
+При старті видаляються записи, старіші за 24 год (ретеншн). Кнопка «Очистити історію» видаляє все.
+
+**Як тестувати**
+
+1. Extended Controls → Virtual Sensors → Device Pose — покрутити пристрій: на графіку з'являються «хвилі», лічильник «Записів у БД» зростає щосекунди.
+2. Викликати тривогу (або сильну вібрацію для R3) — у картці «Спрацювання актуаторів» з'являється рядок `HH:mm:ss · RMS x.xx м/с²`.
+3. Згорнути застосунок і повернутися — статус «на паузі» під час згортання, нових точок за цей час немає.
+4. **Database Inspector**: View → Tool Windows → App Inspection → вкладка Database Inspector → процес застосунку → `intrusion_detector.db` → `sensor_records`, увімкнути «Live updates». Приклад запиту:
+
+```sql
+SELECT * FROM sensor_records WHERE actionTriggered = 1 ORDER BY timestamp DESC
+```
+
+**Скриншоти**
+
+![Графік на вкладці «Аналітика»](docs/screenshots/lr5_chart.png)
+
+![Database Inspector](docs/screenshots/lr5_inspector.png)
+
+**Висновки (чернетка для звіту)**
+
+- *Чому Room кращий за «голий» SQLite.* SQL у `@Query` перевіряється під час компіляції, тож помилка в назві колонки ламає збірку, а не застосунок у користувача. Немає boilerplate з `Cursor` і `ContentValues`: реалізацію DAO генерує KSP. `Flow` і корутини працюють з коробки, тому графік оновлюється сам без ручного опитування. Room забороняє запити в головному потоці, отже UI не зависає. Міграції керовані (`version` + `Migration`), а експорт схеми в JSON дає історію змін і основу для тестів міграцій.
+- *Як локальне збереження підвищує автономність.* Історія доступна офлайн і не губиться при обриві мережі (на відміну від даних зі статусом `PENDING` у ЛР3, які просто не надсилаються). Доступ до даних швидкий, без мережевої затримки. Локальна БД — основа для майбутньої синхронізації за принципом «спершу локально, потім у хмару».
+
+Шпаргалка до захисту — [docs/LR5_defense.md](docs/LR5_defense.md).
+
 ## Плани
 
 Проєкт буде розвиватися протягом семестру:
@@ -367,5 +469,6 @@ devices/{ANDROID_ID}/control: { led_status: false }
 - фонова служба, щоб охорона працювала з вимкненим екраном;
 - сповіщення та звуковий сигнал при тривозі;
 - налаштування чутливості користувачем;
-- збереження журналу подій;
+- збереження журналу подій детектора (зараз у Room пишуться лише RMS і спрацювання актуаторів);
+- синхронізація локальної історії з хмарою («спершу локально, потім у хмару»);
 - підбір порогів на реальному пристрої.

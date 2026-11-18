@@ -11,6 +11,12 @@ androidxJunit = "1.2.1"
 espressoCore = "3.6.1"
 retrofit = "2.11.0"
 okhttp = "4.12.0"
+# ЛР5: префікс KSP обов'язково збігається з версією Kotlin (2.0.21)
+ksp = "2.0.21-1.0.28"
+# ЛР5: Room 2.7 таргетить Kotlin 2.0, як і проєкт
+room = "2.7.2"
+# ЛР5: графіки; 2.0.3 найближча до Compose BOM 2024.12.01 і Kotlin 2.0.21
+vico = "2.0.3"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -28,6 +34,12 @@ kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-cor
 retrofit = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }
 retrofit-converter-gson = { group = "com.squareup.retrofit2", name = "converter-gson", version.ref = "retrofit" }
 okhttp-logging-interceptor = { group = "com.squareup.okhttp3", name = "logging-interceptor", version.ref = "okhttp" }
+# ЛР5: Room — runtime (RoomDatabase, анотації), ktx (корутини: suspend DAO, Flow), compiler (генерує код DAO через KSP)
+androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
+androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
+androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
+# ЛР5: Vico для Compose з темою Material 3
+vico-compose-m3 = { group = "com.patrykandpatrick.vico", name = "compose-m3", version.ref = "vico" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxJunit" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
@@ -36,3 +48,6 @@ androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-co
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+# ЛР5: KSP — обробник анотацій для Kotlin (замість kapt); Room plugin — експорт схеми БД у JSON
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+room = { id = "androidx.room", version.ref = "room" }

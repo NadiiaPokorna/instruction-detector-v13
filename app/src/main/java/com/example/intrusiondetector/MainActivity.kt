@@ -12,6 +12,7 @@ import androidx.activity.viewModels
 import com.example.intrusiondetector.actuator.ControlViewModel
 import com.example.intrusiondetector.ble.HubViewModel
 import com.example.intrusiondetector.cloud.CloudViewModel
+import com.example.intrusiondetector.storage.SensorViewModel
 import com.example.intrusiondetector.ui.AppRoot
 import com.example.intrusiondetector.ui.theme.IntrusionDetectorTheme
 
@@ -36,6 +37,11 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         ControlViewModel.factory(application, viewModel.uiState)
     }
 
+    // ЛР5: Room + графік. Отримує стан детектора і потік автодій актуаторів
+    private val sensorViewModel: SensorViewModel by viewModels {
+        SensorViewModel.factory(application, viewModel.uiState, controlViewModel.executedActions)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -52,6 +58,10 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                     hubViewModel = hubViewModel,
                     cloudViewModel = cloudViewModel,
                     controlViewModel = controlViewModel,
+                    // ЛР5: by viewModels лінивий — ViewModel створюється при першому зверненні.
+                    // Звертаємося тут, у onCreate, щоб запис у БД стартував одразу, а не тоді,
+                    // коли користувач відкриє вкладку «Аналітика»
+                    sensorViewModel = sensorViewModel,
                 )
             }
         }

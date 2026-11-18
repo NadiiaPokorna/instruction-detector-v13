@@ -14,8 +14,11 @@ import com.example.intrusiondetector.cloud.createFirebaseApi
 import com.example.intrusiondetector.cloud.deviceId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -58,6 +61,21 @@ class ControlViewModel(
     val uiState: StateFlow<ControlUiState> = _uiState.asStateFlow()
     val actuatorState: StateFlow<ActuatorState> = actuator.state
 
+    // ЛР5: події «автодії фактично виконано» для запису в Room (SensorViewModel).
+    // SharedFlow, а не StateFlow: дія — подія, а не стан. StateFlow зберігає лише останнє
+    // значення і пропускає однакові підряд (distinctUntilChanged), тож дві однакові тривоги
+    // поспіль злилися б в одну. extraBufferCapacity + tryEmit: tryEmit не призупиняє корутину
+    // і не блокує збір сенсора, а буфер на 16 подій покриває короткий сплеск.
+    private val _executedActions = MutableSharedFlow<List<Action>>(extraBufferCapacity = 16)
+
+    /**
+     * ЛР5: списки автодій, які `DecisionEngine` вирішив і які реально виконано (авто-режим увімкнено).
+     * `List<Action>`, а не по одній дії: R1 дає `ALARM + TORCH_ON` одночасно — одне рішення
+     * означає один запис у БД, інакше на осі X з'явилися б дві точки з однаковим часом.
+     * Ручні й хмарні дії сюди не потрапляють.
+     */
+    val executedActions: SharedFlow<List<Action>> = _executedActions.asSharedFlow()
+
     init {
         // Автоматичне керування: дані сенсора → правила → актуатори
         viewModelScope.launch {
@@ -71,6 +89,8 @@ class ControlViewModel(
                         log("AUTO", "${action.name} (авто-режим вимкнено)")
                     }
                 }
+                // ЛР5: повідомляємо про виконані автодії (лише залоговані не емітимо)
+                if (_uiState.value.autoMode && actions.isNotEmpty()) _executedActions.tryEmit(actions)
             }
         }
         api?.let { viewModelScope.launch { pollCloud(it) } }
