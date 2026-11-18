@@ -17,6 +17,11 @@ ksp = "2.0.21-1.0.28"
 room = "2.7.2"
 # ЛР5: графіки; 2.0.3 найближча до Compose BOM 2024.12.01 і Kotlin 2.0.21
 vico = "2.0.3"
+# ЛР6: TensorFlow Lite. Версія фіксована, а не "+": "+" означає «будь-яка найновіша на момент збірки»,
+# тож та сама ревізія коду в різні дні збиралася б з різними бібліотеками — збірка невідтворювана
+# і може зламатися без жодної зміни в коді. Крім того, 2.17.0 = версія TF, якою конвертовано модель
+# (ml/requirements.txt): конвертер не новіший за рантайм, тож усі версії операторів рантайму відомі.
+tflite = "2.17.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -40,6 +45,9 @@ androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = 
 androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 # ЛР5: Vico для Compose з темою Material 3
 vico-compose-m3 = { group = "com.patrykandpatrick.vico", name = "compose-m3", version.ref = "vico" }
+# ЛР6: рантайм TFLite (Interpreter). Google перейменував TFLite на LiteRT (com.google.ai.edge.litert)
+# з тим самим API Interpreter; беремо org.tensorflow, як у методичці
+tensorflow-lite = { group = "org.tensorflow", name = "tensorflow-lite", version.ref = "tflite" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxJunit" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }

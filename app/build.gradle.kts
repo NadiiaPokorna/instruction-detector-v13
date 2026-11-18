@@ -55,6 +55,13 @@ android {
         compose = true
         buildConfig = true
     }
+    // ЛР6: не стискати модель у APK. ActivityClassifier читає її через memory-mapping
+    // (assets.openFd → FileChannel.map), а відкрити дескриптор файлу всередині APK можна лише для
+    // нестиснутого (STORED) запису. Інакше openFd кидає FileNotFoundException: "This file can not be
+    // opened as a file descriptor; it is probably compressed"
+    androidResources {
+        noCompress += "tflite"
+    }
     testOptions {
         // android.util.Log у JVM-тестах повертає 0 замість винятку
         unitTests.isReturnDefaultValues = true
@@ -88,6 +95,8 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     // ЛР5: графік на вкладці «Аналітика»
     implementation(libs.vico.compose.m3)
+    // ЛР6: on-device inference (лише рантайм, без tensorflow-lite-support / task / GPU)
+    implementation(libs.tensorflow.lite)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

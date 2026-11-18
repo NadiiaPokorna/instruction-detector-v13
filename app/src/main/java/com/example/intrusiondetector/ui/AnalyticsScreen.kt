@@ -90,7 +90,11 @@ private fun StatusCard(state: AnalyticsUiState, onClear: () -> Unit) {
                 style = MaterialTheme.typography.titleMedium,
             )
             Text("Записів у БД: ${state.totalCount}")
-            Text("Інтервал: ${RECORD_INTERVAL_MS / 1000} с")
+            // ЛР6: інтервал змінюється, коли AI бачить активність
+            Text(
+                if (state.intervalMs == RECORD_INTERVAL_MS) "Інтервал: 1 с"
+                else "Інтервал: ${"%.1f".format(state.intervalMs / 1000f)} с (AI: активність)"
+            )
             state.chart.lastOrNull()?.let {
                 Text("Останнє значення RMS: ${"%.2f".format(Locale.US, it.sensorValue)} м/с²")
             }

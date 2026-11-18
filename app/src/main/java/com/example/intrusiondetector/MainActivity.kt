@@ -12,6 +12,7 @@ import androidx.activity.viewModels
 import com.example.intrusiondetector.actuator.ControlViewModel
 import com.example.intrusiondetector.ble.HubViewModel
 import com.example.intrusiondetector.cloud.CloudViewModel
+import com.example.intrusiondetector.ml.AiViewModel
 import com.example.intrusiondetector.storage.SensorViewModel
 import com.example.intrusiondetector.ui.AppRoot
 import com.example.intrusiondetector.ui.theme.IntrusionDetectorTheme
@@ -32,14 +33,20 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         CloudViewModel.factory(application, viewModel.uiState)
     }
 
-    // ЛР4: актуатори (вібрація, ліхтарик) і команди з хмари
+    // ЛР6: on-device AI (TensorFlow Lite). Отримує кожен семпл з onSensorChanged
+    private val aiViewModel: AiViewModel by viewModels { AiViewModel.factory(application, viewModel.uiState) }
+
+    // ЛР4: актуатори (вібрація, ліхтарик) і команди з хмари; ЛР6: AI-аномалії для правила R4
     private val controlViewModel: ControlViewModel by viewModels {
-        ControlViewModel.factory(application, viewModel.uiState)
+        ControlViewModel.factory(application, viewModel.uiState, aiViewModel.anomalies)
     }
 
-    // ЛР5: Room + графік. Отримує стан детектора і потік автодій актуаторів
+    // ЛР5: Room + графік. Отримує стан детектора і потік автодій актуаторів;
+    // ЛР6: прискорений запис, коли AI бачить активність
     private val sensorViewModel: SensorViewModel by viewModels {
-        SensorViewModel.factory(application, viewModel.uiState, controlViewModel.executedActions)
+        SensorViewModel.factory(
+            application, viewModel.uiState, controlViewModel.executedActions, aiViewModel.fastRecording,
+        )
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -62,6 +69,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                     // Звертаємося тут, у onCreate, щоб запис у БД стартував одразу, а не тоді,
                     // коли користувач відкриє вкладку «Аналітика»
                     sensorViewModel = sensorViewModel,
+                    aiViewModel = aiViewModel,
                 )
             }
         }
@@ -88,6 +96,9 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         if (event.sensor.type != Sensor.TYPE_ACCELEROMETER) return
         // values[0..2] - прискорення по осях X, Y, Z (м/с²), timestamp - нс
         viewModel.onSample(event.values[0], event.values[1], event.values[2], event.timestamp)
+        // ЛР6: той самий семпл |a − g| — у вікно AI. Прямий виклик, а не collect зі StateFlow,
+        // щоб не губити семпли (пояснення — AiViewModel.onSample)
+        aiViewModel.onSample(viewModel.uiState.value.snapshot.dynamic)
     }
 
     override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) {

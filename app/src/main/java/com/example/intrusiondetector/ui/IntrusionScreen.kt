@@ -42,6 +42,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.intrusiondetector.HISTORY_SIZE
@@ -49,6 +50,9 @@ import com.example.intrusiondetector.IntrusionUiState
 import com.example.intrusiondetector.cloud.CloudStatus
 import com.example.intrusiondetector.cloud.CloudUiState
 import com.example.intrusiondetector.description
+import com.example.intrusiondetector.ml.ActivityClassifier
+import com.example.intrusiondetector.ml.AiUiState
+import com.example.intrusiondetector.ml.VibrationClass
 import com.example.intrusiondetector.sensor.SecurityState
 import com.example.intrusiondetector.sensor.Thresholds
 import com.example.intrusiondetector.ui.theme.AxisXColor
@@ -93,7 +97,7 @@ private fun SecurityState.color() = when (this) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun IntrusionScreen(state: IntrusionUiState, cloud: CloudUiState, onRearm: () -> Unit) {
+fun IntrusionScreen(state: IntrusionUiState, cloud: CloudUiState, ai: AiUiState, onRearm: () -> Unit) {
     Scaffold(
         topBar = { TopAppBar(title = { Text("Intrusion Detector") }) },
     ) { padding ->
@@ -117,6 +121,7 @@ fun IntrusionScreen(state: IntrusionUiState, cloud: CloudUiState, onRearm: () ->
                 return@Column
             }
             StatusCard(state, onRearm)
+            AiInsightsCard(ai)
             VibrationCard(state)
             AxesCard(state)
             TiltCard(state)
@@ -158,6 +163,77 @@ private fun SectionCard(title: String, content: @Composable () -> Unit) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
             content()
+        }
+    }
+}
+
+/** ЛР6: колір класу AI — ті самі кольори, що й у станів детектора (`Theme.kt`). */
+private fun VibrationClass.color() = when (this) {
+    VibrationClass.CALM -> QuietColor
+    VibrationClass.TOUCH -> VibrationColor
+    VibrationClass.BREAK_IN -> IntrusionColor
+}
+
+/** ЛР6: блок «AI Insights» — останній прогноз on-device моделі TFLite. */
+@Composable
+private fun AiInsightsCard(ai: AiUiState) {
+    SectionCard("AI Insights (on-device, TensorFlow Lite)") {
+        if (!ai.available) {
+            Text(
+                "Модель не завантажилась: ${ai.error ?: "невідома помилка"}",
+                color = MaterialTheme.colorScheme.error,
+            )
+            return@SectionCard
+        }
+        val p = ai.prediction
+        if (p == null || ai.bufferFill < ActivityClassifier.RAW_WINDOW) {
+            // Поки вікно (2 с) не заповнене, прогнозу немає
+            Text("Накопичення даних: ${ai.bufferFill}/${ActivityClassifier.RAW_WINDOW}")
+            LinearProgressIndicator(
+                progress = { ai.bufferFill / ActivityClassifier.RAW_WINDOW.toFloat() },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        if (p != null) {
+            val color by animateColorAsState(p.cls.color(), label = "aiColor")
+            Text(
+                "Поточний стан: ${p.cls.label} (${(p.confidence * 100).toInt()}%)",
+                color = color,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+            )
+            // Смуги ймовірностей усіх класів
+            VibrationClass.entries.forEachIndexed { i, cls ->
+                val prob = p.probabilities[i]
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(cls.label, Modifier.width(130.dp), style = MaterialTheme.typography.bodySmall)
+                    LinearProgressIndicator(
+                        progress = { prob },
+                        modifier = Modifier.weight(1f).height(8.dp),
+                        color = cls.color(),
+                    )
+                    Text(
+                        "${(prob * 100).toInt()}%",
+                        Modifier.width(44.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.End,
+                    )
+                }
+            }
+            Text(
+                "Inference: ${String.format(Locale.getDefault(), "%.2f", p.inferenceMs)} мс · вікно 2 с · " +
+                    "прогноз кожні 0,5 с",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Text(
+            "Запис у БД: ${if (ai.fastRecording) "швидкий (0,2 с)" else "звичайний (1 с)"}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (ai.anomalyConfirmed) {
+            Text("Аномалію підтверджено → R4", color = IntrusionColor, fontWeight = FontWeight.SemiBold)
         }
     }
 }

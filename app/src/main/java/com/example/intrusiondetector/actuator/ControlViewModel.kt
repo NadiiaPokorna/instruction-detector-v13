@@ -12,6 +12,7 @@ import com.example.intrusiondetector.cloud.ControlState
 import com.example.intrusiondetector.cloud.FirebaseApi
 import com.example.intrusiondetector.cloud.createFirebaseApi
 import com.example.intrusiondetector.cloud.deviceId
+import com.example.intrusiondetector.ml.Prediction
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -42,10 +43,15 @@ private const val TAG = "Control"
 private const val POLL_INTERVAL_MS = 1_000L
 private const val LOG_SIZE = 20
 
-/** ЛР4: автоматичне, ручне і хмарне (опитування) керування актуаторами. */
+/**
+ * ЛР4: автоматичне, ручне і хмарне (опитування) керування актуаторами.
+ *
+ * @param ml ЛР6: підтверджені AI-аномалії (`AiViewModel.anomalies`) для правила R4.
+ */
 class ControlViewModel(
     app: Application,
     sensor: StateFlow<IntrusionUiState>,
+    ml: SharedFlow<Prediction>,
 ) : ViewModel() {
     private val actuator = SmartActuator(app)
     private val engine = DecisionEngine()
@@ -80,20 +86,35 @@ class ControlViewModel(
         // Автоматичне керування: дані сенсора → правила → актуатори
         viewModelScope.launch {
             sensor.collect { ui ->
-                val actions = engine.decide(ui.snapshot, System.currentTimeMillis())
-                for (action in actions) {
-                    if (_uiState.value.autoMode) {
-                        execute(action)
-                        log("AUTO", action.name)
-                    } else {
-                        log("AUTO", "${action.name} (авто-режим вимкнено)")
-                    }
-                }
-                // ЛР5: повідомляємо про виконані автодії (лише залоговані не емітимо)
-                if (_uiState.value.autoMode && actions.isNotEmpty()) _executedActions.tryEmit(actions)
+                runAuto(engine.decide(ui.snapshot, System.currentTimeMillis()))
+            }
+        }
+        // ЛР6: R4 — підтверджена AI-аномалія → той самий шлях автодій, що й R1–R3 (авто-режим, журнал,
+        // запис у БД через executedActions з actionTriggered = true)
+        viewModelScope.launch {
+            ml.collect { p ->
+                val actions = engine.decideMl(p, sensor.value.snapshot.state, System.currentTimeMillis())
+                runAuto(actions, prefix = "R4 ", suffix = " (ML ${(p.confidence * 100).toInt()}%)")
             }
         }
         api?.let { viewModelScope.launch { pollCloud(it) } }
+    }
+
+    /**
+     * Виконує автодії, якщо авто-режим увімкнено, і журналює їх. Спільний шлях для R1–R3 і R4 (ЛР6).
+     * [prefix]/[suffix] доповнюють рядок журналу, напр. `AUTO R4 ALARM (ML 92%)`.
+     */
+    private fun runAuto(actions: List<Action>, prefix: String = "", suffix: String = "") {
+        for (action in actions) {
+            if (_uiState.value.autoMode) {
+                execute(action)
+                log("AUTO", "$prefix${action.name}$suffix")
+            } else {
+                log("AUTO", "$prefix${action.name}$suffix (авто-режим вимкнено)")
+            }
+        }
+        // ЛР5: повідомляємо про виконані автодії (лише залоговані не емітимо)
+        if (_uiState.value.autoMode && actions.isNotEmpty()) _executedActions.tryEmit(actions)
     }
 
     fun toggleTorch(on: Boolean) {
@@ -152,8 +173,9 @@ class ControlViewModel(
     }
 
     companion object {
-        fun factory(app: Application, sensor: StateFlow<IntrusionUiState>) = viewModelFactory {
-            initializer { ControlViewModel(app, sensor) }
-        }
+        fun factory(app: Application, sensor: StateFlow<IntrusionUiState>, ml: SharedFlow<Prediction>) =
+            viewModelFactory {
+                initializer { ControlViewModel(app, sensor, ml) }
+            }
     }
 }

@@ -24,6 +24,7 @@ import com.example.intrusiondetector.IntrusionViewModel
 import com.example.intrusiondetector.actuator.ControlViewModel
 import com.example.intrusiondetector.ble.HubViewModel
 import com.example.intrusiondetector.cloud.CloudViewModel
+import com.example.intrusiondetector.ml.AiViewModel
 import com.example.intrusiondetector.storage.SensorViewModel
 
 /** Чотири вкладки: детектор (ЛР1), BLE-хаб (ЛР2), керування актуаторами (ЛР4) і аналітика (ЛР5). */
@@ -34,6 +35,7 @@ fun AppRoot(
     cloudViewModel: CloudViewModel,
     controlViewModel: ControlViewModel,
     sensorViewModel: SensorViewModel,
+    aiViewModel: AiViewModel,
 ) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     Scaffold(
@@ -73,7 +75,9 @@ fun AppRoot(
                 0 -> {
                     val state by intrusionViewModel.uiState.collectAsStateWithLifecycle()
                     val cloud by cloudViewModel.uiState.collectAsStateWithLifecycle()
-                    IntrusionScreen(state = state, cloud = cloud, onRearm = intrusionViewModel::rearm)
+                    // ЛР6: стан блоку «AI Insights»
+                    val ai by aiViewModel.uiState.collectAsStateWithLifecycle()
+                    IntrusionScreen(state = state, cloud = cloud, ai = ai, onRearm = intrusionViewModel::rearm)
                 }
                 2 -> {
                     val state by controlViewModel.uiState.collectAsStateWithLifecycle()

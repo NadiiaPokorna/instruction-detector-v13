@@ -8,6 +8,8 @@ import android.hardware.camera2.CameraManager
 import android.os.VibrationEffect
 import android.os.VibratorManager
 import android.util.Log
+import com.example.intrusiondetector.ml.Prediction
+import com.example.intrusiondetector.ml.VibrationClass
 import com.example.intrusiondetector.sensor.SecuritySnapshot
 import com.example.intrusiondetector.sensor.SecurityState
 import com.example.intrusiondetector.sensor.Thresholds
@@ -88,6 +90,8 @@ enum class Action { ALARM, TORCH_ON, TORCH_OFF, WARN_VIBRATION }
 /**
  * Правила автоматичного керування (чистий Kotlin, без Android).
  * Зберігає попередній стан, щоб реагувати на переходи.
+ *
+ * R1–R3 — [decide] (пороговий детектор ЛР1), R4 — [decideMl] (ЛР6, on-device AI).
  */
 class DecisionEngine {
     companion object {
@@ -96,11 +100,15 @@ class DecisionEngine {
 
         /** R3: попередження не частіше 1 разу на 5 с. */
         const val WARN_INTERVAL_MS = 5_000L
+
+        /** R4 (ЛР6): сирена за ML-аномалією не частіше 1 разу на 10 с. */
+        const val ML_ALARM_INTERVAL_MS = 10_000L
     }
 
     private var prevState: SecurityState? = null
     private var torchByEngine = false
     private var lastWarnAt = Long.MIN_VALUE / 2
+    private var lastMlAlarmAt = Long.MIN_VALUE / 2
 
     fun decide(snapshot: SecuritySnapshot, now: Long): List<Action> {
         val state = snapshot.state
@@ -133,5 +141,22 @@ class DecisionEngine {
             lastWarnAt = now
         }
         return actions
+    }
+
+    /**
+     * R4 (ЛР6): IF ML підтвердив BREAK_IN AND стан ≠ INTRUSION THEN сирена (не частіше 1 разу на 10 с).
+     *
+     * Лише [Action.ALARM], без ліхтаря: ліхтар вимикає R2 при виході з `INTRUSION`, а ML-аномалія стан
+     * детектора не змінює — ліхтар, увімкнений тут, ніхто б не вимкнув. Якщо детектор уже в `INTRUSION`,
+     * R4 мовчить: R1 уже ввімкнув сирену і прожектор.
+     *
+     * @param prediction підтверджений прогноз з `AiViewModel.anomalies`.
+     * @param state поточний стан порогового детектора.
+     */
+    fun decideMl(prediction: Prediction, state: SecurityState, now: Long): List<Action> {
+        if (prediction.cls != VibrationClass.BREAK_IN || state == SecurityState.INTRUSION) return emptyList()
+        if (now - lastMlAlarmAt < ML_ALARM_INTERVAL_MS) return emptyList()
+        lastMlAlarmAt = now
+        return listOf(Action.ALARM)
     }
 }

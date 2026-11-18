@@ -9,3 +9,7 @@ build/
 .externalNativeBuild
 .cxx/
 google-services.json
+
+# ЛР6: тимчасові артефакти ml/train_model.py
+ml/.venv/
+ml/build/

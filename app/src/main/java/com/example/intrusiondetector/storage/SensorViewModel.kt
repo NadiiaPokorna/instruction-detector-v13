@@ -29,10 +29,15 @@ data class AnalyticsUiState(
     val totalCount: Int = 0,
     /** Сенсор активний (між `onResume` і `onPause`), тобто запис у БД іде. */
     val recording: Boolean = false,
+    /** ЛР6: поточний інтервал запису, мс ([RECORD_INTERVAL_MS] або [FAST_RECORD_INTERVAL_MS]). */
+    val intervalMs: Long = RECORD_INTERVAL_MS,
 )
 
 /** Період запису значення сенсора в БД, мс. */
 const val RECORD_INTERVAL_MS = 1_000L
+
+/** ЛР6: період запису, коли AI бачить активність (клас ≠ CALM), мс. */
+const val FAST_RECORD_INTERVAL_MS = 200L
 
 /** Скільки останніх записів показує графік. */
 const val MAX_CHART_POINTS = 50
@@ -54,11 +59,13 @@ const val RETENTION_MS = 24 * 60 * 60 * 1_000L
  *
  * @param sensor стан детектора ЛР1 (`IntrusionViewModel.uiState`).
  * @param actions виконані автодії ЛР4 (`ControlViewModel.executedActions`).
+ * @param fast ЛР6: AI бачить активність (`AiViewModel.fastRecording`) → запис кожні [FAST_RECORD_INTERVAL_MS].
  */
 class SensorViewModel(
     app: Application,
     private val sensor: StateFlow<IntrusionUiState>,
     actions: SharedFlow<List<Action>>,
+    private val fast: StateFlow<Boolean>,
 ) : ViewModel() {
     // ViewModel звертається лише до репозиторію, не до DAO напряму
     private val repo = SensorRepository(AppDatabase.getInstance(app).sensorDao())
@@ -77,7 +84,8 @@ class SensorViewModel(
         viewModelScope.launch {
             // isActive: при скасуванні viewModelScope цикл коректно завершується
             while (isActive) {
-                delay(RECORD_INTERVAL_MS)
+                // ЛР6: змінний інтервал — під час активності детальніша історія, у спокої економимо флеш
+                delay(if (fast.value) FAST_RECORD_INTERVAL_MS else RECORD_INTERVAL_MS)
                 val ui = sensor.value
                 // Пишемо лише коли сенсор слухається: після onPause він знятий, і записи були б
                 // «застиглим» останнім значенням
@@ -120,8 +128,15 @@ class SensorViewModel(
         repo.triggered(MAX_TRIGGERED),
         repo.count(),
         sensor.map { it.listening && it.sensorAvailable },
-    ) { chart, triggered, count, recording ->
-        AnalyticsUiState(chart = chart, triggered = triggered, totalCount = count, recording = recording)
+        fast,
+    ) { chart, triggered, count, recording, isFast ->
+        AnalyticsUiState(
+            chart = chart,
+            triggered = triggered,
+            totalCount = count,
+            recording = recording,
+            intervalMs = if (isFast) FAST_RECORD_INTERVAL_MS else RECORD_INTERVAL_MS,
+        )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AnalyticsUiState())
 
     /** Видаляє всю історію, щоб почати графік з чистого аркуша (наприклад, перед скриншотом). */
@@ -135,8 +150,9 @@ class SensorViewModel(
             app: Application,
             sensor: StateFlow<IntrusionUiState>,
             actions: SharedFlow<List<Action>>,
+            fast: StateFlow<Boolean>,
         ) = viewModelFactory {
-            initializer { SensorViewModel(app, sensor, actions) }
+            initializer { SensorViewModel(app, sensor, actions, fast) }
         }
     }
 }
